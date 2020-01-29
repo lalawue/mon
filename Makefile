@@ -1,22 +1,23 @@
 PREFIX ?= /usr/local
-SRC = src/mon.c deps/ms.c deps/commander.c
+SRC = src/mon.c deps/ms.c deps/json.c deps/config.c
 OBJ = $(SRC:.c=.o)
 CFLAGS = -D_GNU_SOURCE -std=c99 -I deps/
+BIN = mon_sched
 
-mon: $(OBJ)
+$(BIN): $(OBJ)
 	$(CC) $(OBJ) -o $@
 
 .SUFFIXES: .c .o
 .c.o:
 	$(CC) $< $(CFLAGS) -c -o $@
 
-install: mon
-	cp -f mon $(PREFIX)/bin/mon
+install:
+	cp -f mon $(PREFIX)/bin/$(BIN)
 
 uninstall:
-	rm -f $(PREFIX)/bin/mon
+	rm -f $(PREFIX)/bin/$(BIN)
 
 clean:
-	rm -f mon $(OBJ)
+	rm -f $(BIN) $(OBJ)
 
 .PHONY: clean install uninstall

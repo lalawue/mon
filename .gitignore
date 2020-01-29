@@ -1,3 +1,4 @@
 *.o
-mon.log
-mon
+mon_sched.log
+mon_sched
+.vscode/
