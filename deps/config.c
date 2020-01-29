@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 
 mon_t* _mod_parse_json(json_value *value);
 
@@ -207,4 +209,42 @@ _mod_parse_json(json_value *value)
 	}
 
 	return mon;
+}
+
+
+/** dump status as JSON
+ */
+void
+mon_dump_status(mon_t *mon, int fd) {
+	if (!mon) {
+		return;
+	}
+
+	const int buf_len = 4096;
+	unsigned char *buf = malloc(buf_len);
+	int bytes = 0;
+	time_t ti = time(NULL);
+	write(fd, "{\n", 2);
+	bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t},\n",
+	 				mon->name, ti, getpid());
+	write(fd, buf, bytes);					 
+	{
+		monitor_t *m = mon->monitors;
+		while (m) 
+		{	
+			time_t mti = m->last_restart_at / 1000;
+			bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t}",
+							 m->name, mti ? mti : ti, m->pid);
+			write(fd, buf, bytes);
+			m = m->next_monitor;
+			if (m) {
+				write(fd, ",\n", 2);
+			} else {
+				write(fd, "\n", 1);
+				break;
+			}
+		}
+	}
+	write(fd, "}\n", 2);
+	free(buf);
 }

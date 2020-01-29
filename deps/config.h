@@ -40,10 +40,12 @@ typedef struct {
 	const char *logfile;
     const char *pidfile;
 	int daemon;
-    monitor_t *monitors;
+	monitor_t *monitors;
 } mon_t;
 
 mon_t* mon_create(const char *file_path);
 void mon_destory(mon_t *mon);
+
+void mon_dump_status(mon_t *mon, int fd);
 
 #endif

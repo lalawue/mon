@@ -70,17 +70,20 @@ timestamp() {
 }
 
 /*
- * Write `pid` to `file`.
+ * Write group info to `file`.
  */
 
 void
-write_pidfile(const char *file, pid_t pid) {
-  char buf[32] = {0};
-  snprintf(buf, 32, "%d", pid);
-  int fd = open(file, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-  if (fd < 0) perror("open()");
-  write(fd, buf, 32);
-  close(fd);
+write_pidfile() {
+	if (g_mon->pidfile == NULL) {
+		return;
+	}
+	int fd = open(g_mon->pidfile, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+		perror("open()");
+	}
+	mon_dump_status(g_mon, fd);
+	close(fd);
 }
 
 /*
@@ -292,6 +295,10 @@ attempts_exceeded(monitor_t *monitor, int64_t ms) {
   return 1;
 }
 
+/*
+ * find monitor with pid
+ */
+
 static monitor_t*
 _monitor_with_pid(pid_t pid)
 {
@@ -304,6 +311,11 @@ _monitor_with_pid(pid_t pid)
 	}
 	return NULL;
 }
+
+/*
+ * find monitor in sleep state, increase sleep time, return the close to restart one,
+ * also return has_other_child flag
+ */
 
 static monitor_t*
 _increase_sleep_monitor(mon_t *mon, int *has_other_child) {
@@ -325,12 +337,14 @@ _increase_sleep_monitor(mon_t *mon, int *has_other_child) {
 	return close_to_restart;
 }
 
+typedef void (*last_one_callback)();
+
 /*
  * Monitor the given `cmd`.
  */
 
 void
-start(monitor_t *monitor, bool to_wait) {
+start(monitor_t *monitor, last_one_callback last_callback) {
 monitor_exec: {
 	pid_t pid = fork();
 	int status;
@@ -349,10 +363,12 @@ monitor_exec: {
 		log("%s pid %d", monitor->name, pid);
 		monitor->pid = pid;
 
-		if (!to_wait) {
+		if (!last_callback) {
 			// wait at last one
 			return;
 		}
+
+		last_callback();
 
 		monitor_sleep: {
 			monitor_t *m = NULL;
@@ -486,15 +502,11 @@ main(int argc, char *argv[]) {
     	redirect_stdio_to(g_mon->logfile);
   	}
 
-  // write mon pidfile
-//   if (monitor.mon_pidfile) {
-//     log("write mon pid to %s", monitor.mon_pidfile);
-//     write_pidfile(monitor.mon_pidfile, getpid());
-//   }
+	last_one_callback callback = g_mon->pidfile ? write_pidfile : NULL;
 
 	monitor_t *m = g_mon->monitors;
 	while (m) {
-	  	start(m, m->next_monitor == NULL);
+	  	start(m, !m->next_monitor ? callback : NULL);
 		m = m->next_monitor;
 	}
 

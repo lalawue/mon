@@ -2,3 +2,5 @@
 mon_sched.log
 mon_sched
 .vscode/
+*.log
+*.pid

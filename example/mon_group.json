@@ -1,8 +1,8 @@
 {
 	"name" : "mon_group",
-	"logfile" : "mon_log.log",
-	"pidfile" : "mon_pid.pid",
-	"daemon" : true,
+	"logfile" : "mon_sched.log",
+	"pidfile" : "mon_sched.pid",
+	"daemon" : false,
 	"mon1" : {
 		"logfile": "log1.txt",
 		"cmd": "example/program.sh",
