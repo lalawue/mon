@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 # try:
-#  mon ./example/program.sh
-#  mon -d ./example/program.sh
-#  mon -d ./example/program.sh --on-error ./example/on_error.sh
+#  mon_shed example/mon_group.json
 
 echo one
 sleep 2
