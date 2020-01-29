@@ -1,6 +1,6 @@
 
 //
-// mon.c
+// mon_sched.c
 //
 // Copyright (c) 2012 TJ Holowaychuk <tj@vision-media.ca>
 //
