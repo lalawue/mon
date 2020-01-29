@@ -4,16 +4,14 @@
 // Copyright (c) 2020 lalawue Holowaychuk
 //
 
-#include "config.h"
-#include "json.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <time.h>
-#include <unistd.h>
+#include "config.h"
+#include "json.h"
 
-mon_t* _mod_parse_json(json_value *value);
+mon_t* _mon_parse_json(json_value *value);
 
 mon_t*
 mon_create(const char* file_path)
@@ -62,7 +60,7 @@ mon_create(const char* file_path)
 		exit(1);
 	}
 
-	mon_t *m = _mod_parse_json(value);
+	mon_t *m = _mon_parse_json(value);
 	if (!m) {
 		fprintf(stderr, "Invalid json\n");
 		exit(1);
@@ -102,7 +100,7 @@ mon_destory(mon_t* mon)
 	}
 }
 
-static bool
+bool
 _entry_name_equal(json_object_entry *entry, char *mark) {
 	return strncmp(entry->name, mark, entry->name_length) == 0;
 }
@@ -115,7 +113,7 @@ _value_string_dup(json_value *value, const char **output) {
 }
 
 static monitor_t*
-_mod_parse_object(json_object_entry *entry)
+_mon_parse_object(json_object_entry *entry)
 {
 	if (entry == NULL || entry->value->type != json_object) {
 		return NULL;
@@ -166,7 +164,7 @@ _mod_parse_object(json_object_entry *entry)
 }
 
 mon_t*
-_mod_parse_json(json_value *value)
+_mon_parse_json(json_value *value)
 {
 	if (value == NULL || value->type != json_object) {
 		fprintf(stderr, "Invalid json file\n");
@@ -197,7 +195,7 @@ _mod_parse_json(json_value *value)
 			mon->daemon = entry->value->u.boolean;
 			continue;
 		}
-		monitor_t *m = _mod_parse_object(entry);
+		monitor_t *m = _mon_parse_object(entry);
 		if (m) {
 			if (mon->monitors == NULL) {
 				mon->monitors = m;
@@ -209,42 +207,4 @@ _mod_parse_json(json_value *value)
 	}
 
 	return mon;
-}
-
-
-/** dump status as JSON
- */
-void
-mon_dump_status(mon_t *mon, int fd) {
-	if (!mon) {
-		return;
-	}
-
-	const int buf_len = 4096;
-	unsigned char *buf = malloc(buf_len);
-	int bytes = 0;
-	time_t ti = time(NULL);
-	write(fd, "{\n", 2);
-	bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t},\n",
-	 				mon->name, ti, getpid());
-	write(fd, buf, bytes);					 
-	{
-		monitor_t *m = mon->monitors;
-		while (m) 
-		{	
-			time_t mti = m->last_restart_at / 1000;
-			bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t}",
-							 m->name, mti ? mti : ti, m->pid);
-			write(fd, buf, bytes);
-			m = m->next_monitor;
-			if (m) {
-				write(fd, ",\n", 2);
-			} else {
-				write(fd, "\n", 1);
-				break;
-			}
-		}
-	}
-	write(fd, "}\n", 2);
-	free(buf);
 }

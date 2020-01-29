@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include "ms.h"
 #include "config.h"
+#include "status.h"
 
 /*
  * Program version.
@@ -49,15 +50,6 @@ error(char *msg) {
 }
 
 /*
- * Check if process of `pid` is alive.
- */
-
-int
-alive(pid_t pid) {
-  return 0 == kill(pid, 0);
-}
-
-/*
  * Return a timestamp in milliseconds.
  */
 
@@ -75,15 +67,7 @@ timestamp() {
 
 void
 write_pidfile() {
-	if (g_mon->pidfile == NULL) {
-		return;
-	}
-	int fd = open(g_mon->pidfile, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-	if (fd < 0) {
-		perror("open()");
-	}
-	mon_dump_status(g_mon, fd);
-	close(fd);
+	mon_dump_status(g_mon);
 }
 
 /*
@@ -91,33 +75,8 @@ write_pidfile() {
  */
 
 pid_t
-read_pidfile(const char *file) {
-  off_t size;
-  struct stat s;
-
-  // stat
-  if (stat(file, &s) < 0) {
-    perror("stat()");
-    exit(1);
-  }
-
-  size = s.st_size;
-
-  // opens
-  int fd = open(file, O_RDONLY, 0);
-  if (fd < 0) {
-    perror("open()");
-    exit(1);
-  }
-
-  // read
-  char buf[size];
-  if (size != read(fd, buf, size)) {
-    perror("read()");
-    exit(1);
-  }
-
-  return atoi(buf);
+read_pidfile() {
+	return mon_get_pid(g_mon);
 }
 
 /*
@@ -126,51 +85,7 @@ read_pidfile(const char *file) {
 
 void
 show_status_of(const char *pidfile) {
-  off_t size;
-  struct stat s;
-
-  // stat
-  if (stat(pidfile, &s) < 0) {
-    perror("stat()");
-    exit(1);
-  }
-
-  size = s.st_size;
-
-  // opens
-  int fd = open(pidfile, O_RDONLY, 0);
-  if (fd < 0) {
-    perror("open()");
-    exit(1);
-  }
-
-  // read
-  char buf[size];
-  if (size != read(fd, buf, size)) {
-    perror("read()");
-    exit(1);
-  }
-
-  // uptime
-  time_t modified = s.st_mtime;
-
-  struct timeval t;
-  gettimeofday(&t, NULL);
-  time_t now = t.tv_sec;
-  time_t secs = now - modified;
-
-  // status
-  pid_t pid = atoi(buf);
-
-  if (alive(pid)) {
-    char *str = milliseconds_to_long_string(secs * 1000);
-    printf("\e[90m%d\e[0m : \e[32malive\e[0m : uptime %s\e[m\n", pid, str);
-    free(str);
-  } else {
-    printf("\e[90m%d\e[0m : \e[31mdead\e[0m\n", pid);
-  }
-
-  close(fd);
+	mon_show_status(pidfile);
 }
 
 /*
@@ -212,7 +127,7 @@ graceful_exit(int sig) {
   log("kill(-%d, %d)", pid, sig);
   kill(-pid, sig);
   log("waiting for exit");
-  waitpid(read_pidfile(g_mon->pidfile), &status, 0);
+  waitpid(read_pidfile(), &status, 0);
   log("bye :)");
   exit(0);
 }
@@ -477,9 +392,7 @@ main(int argc, char *argv[]) {
 
 	if (strcmp(argv[1], "-s") == 0) {
 		if (argc > 2) {
-			char *pidfile = argv[2];
-			printf("%s\n", pidfile);
-			//FIXME: show pi
+			show_status_of(argv[2]);
 		} else {
 			_show_help(argv[0]);
 		}

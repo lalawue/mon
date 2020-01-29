@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 /*
  * Monitor.
@@ -45,7 +46,5 @@ typedef struct {
 
 mon_t* mon_create(const char *file_path);
 void mon_destory(mon_t *mon);
-
-void mon_dump_status(mon_t *mon, int fd);
 
 #endif
