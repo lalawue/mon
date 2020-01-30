@@ -1,6 +1,6 @@
 # mon_sched(1)
 
-  group process supervisor, using a JSON config file, fork from https://github.com/tj/mon, depends on  https://github.com/udp/json-parser, and the origin `mon` was:
+  group process supervisor, using a JSON config file, support cron style invoke interval, fork from https://github.com/tj/mon, depends on  https://github.com/udp/json-parser, and the origin `mon` was:
 
   Super-simple monitoring program.
 
@@ -63,8 +63,6 @@ mon2 [85782] : alive : uptime 2 seconds
 
 ## Config format
 
-the 'cron' not supported now.
-
 ```js
 {
         "name" : "mon_group",
@@ -90,6 +88,14 @@ the 'cron' not supported now.
 }
 ```
 You may daemonize mon_sched to set group 'daemon' key to true.
+
+and the 'cron' entry format like:
+
+```js
+"0,30,45   */3     2,[4-9]     *       *"
+# minius   hour    month_day   month   weak_day
+# (0-59)   (0-23)  (1-31)      (0-11)  (0-6)
+```
 
 ## Failure alerts
 

@@ -37,7 +37,7 @@ _next_token(const char *buf, int *is, const int ie, char *number) {
 		*number = 0;
 		while (buf[*is] >= '0' && buf[*is] <= '9' && *is <= ie) {
 			*number *= 10;
-			*number |= buf[*is] - '0';
+			*number += buf[*is] - '0';
 			*is += 1;
 		}
 		return T_DIGIT;
@@ -90,7 +90,7 @@ _fill_bits(char nstart, char nend, unsigned char *pbits, int bytes, char nmin, c
 			for (int i=0; nmin+i<=nmax; i++) {
 				char nnum = i % nend;
 				if (nnum == 0) {
-					pbits[nnum/8] |= (nnum % 8) << 1;
+					pbits[i/8] |= 1 << (i % 8);
 				}
 			}
 		}
@@ -99,7 +99,7 @@ _fill_bits(char nstart, char nend, unsigned char *pbits, int bytes, char nmin, c
 	// 3
 	if (nstart >= 0 && nend == kUnknow) {
 		if (nstart >= nmin && nstart <= nmax) {
-			pbits[nstart/8] |= (nstart % 8) << 1;
+			pbits[nstart/8] |= 1 << (nstart % 8) ;
 		}
 	}
 
@@ -111,7 +111,7 @@ _fill_bits(char nstart, char nend, unsigned char *pbits, int bytes, char nmin, c
 			nend <= nmax)
 		{
 			for (int i=nstart; i<=nend; i++) {
-				pbits[i/8] |= (i % 8) << 1;
+				pbits[i/8] |= 1 << (i % 8);
 			}
 		}
 	}
@@ -129,7 +129,7 @@ _parse_bits(const char *buf, int *is, int ie, unsigned char *pbits, int bytes, c
 	char nnumber; // temp number
 	//_LOG("buf %s, %d, %d\n", buf, *is, ie);
 	while ((token = _next_token(buf, is, ie, &nnumber))) {
-		//_LOG("token %d\n", token);
+		_LOG("%s: token %d, %d\n", tag, token, nnumber);
 		if (token == T_UNKNOW) {
 			return false;
 		}
@@ -194,8 +194,8 @@ cron_create(const char *entry, int entry_len)
 
 	const char *s = entry;
 	const char *e = entry + entry_len - 1;
-	while (*s == ' ' && s < e) { s++; }
-	while (*e == ' ' && e > s) { e--; }
+	while ((*s == ' ' || *s == '\t') && s < e) { s++; }
+	while ((*e == ' ' || *s == '\t') && e > s) { e--; }
 
 	int len = e - s + 1;
 	if (len < 9) {
@@ -245,25 +245,98 @@ error:
 }
 
 void
-cron_destroy(cron_t *cron)
-{
+cron_destroy(cron_t *cron) {
 	if (cron) {
 		free(cron);
 	}
 }
 
+static inline bool
+_is_bit_true(unsigned char *pbits, int bytes, int bits_index) {
+	int index = bits_index / 8;
+	if (index < bytes) {
+		return pbits[index] & (1 << (bits_index % 8));
+	}
+	return false;
+}
+
+
 bool
-cron_should_invoke(cron_t *cron, time_t ti)
-{
+cron_should_invoke(cron_t *cron, struct tm *ptm) {
+	if (cron && ptm) {
+		bool in_min = _is_bit_true(cron->min, sizeof(cron->min), ptm->tm_min);
+		bool in_hour = _is_bit_true(cron->hour, sizeof(cron->hour), ptm->tm_hour);
+		bool in_mday = _is_bit_true(cron->mdays, sizeof(cron->mdays), ptm->tm_mday - 1);
+		bool in_mon = _is_bit_true(cron->mon, sizeof(cron->mon), ptm->tm_mon);
+		bool in_wday = _is_bit_true(cron->wdays, sizeof(cron->wdays), ptm->tm_wday % 7);
+		//printf("min:%d hour:%d mday:%d mon:%d wday:%d\n", in_min, in_hour, in_mday, in_mon, in_wday);
+		return in_min && in_hour && in_mday && in_mon && in_wday;
+	}
 	return false;
 }
 
 #ifdef CRON_TEST
+#include <assert.h>
+void
+_dump_bits(unsigned char *pbits, int bytes) {
+	int i = 0;
+	for (; i<bytes; i++) {
+		printf("%x ", pbits[i]);
+		if (i && i % 10 == 0) {
+			printf("\n");
+		}
+	}
+	if (i % 10 != 0) {
+		printf("\n");
+	}
+}
+#define _TM(T, A, B, C, D, E) struct tm T = { \
+			.tm_min = A,	\
+			.tm_hour = B,	\
+			.tm_mday = C,	\
+			.tm_mon = D,	\
+			.tm_wday = E	\
+		}
 // gcc cron.c -DCRON_TEST
 int main(int arg, char *argv[]) {
 	//"2,9-15,22 * */5 3,9,18 *"
 	//"2,,,9---15, 22 * 3,9,10  */5 *"
-	cron_create(argv[1], strlen(argv[1]));
+	char *str_cron = NULL; //cron_create(argv[1], strlen(argv[1]));
+	cron_t *cron = NULL;
+	//_dump_bits(cron->min, sizeof(cron->min));
+	{
+		str_cron = "* 1,8,12 * * *";
+		cron = cron_create(str_cron, strlen(str_cron));
+		_TM(t, 0, 1, 1, 0, 0);
+		assert( cron_should_invoke(cron, &t) );
+		_TM(t1, 0, 8, 1, 0, 0);
+		assert( cron_should_invoke(cron, &t1) );
+		_TM(t2, 0, 12, 1, 0, 0);
+		assert( cron_should_invoke(cron, &t2) );
+		_TM(t3, 0, 11, 1, 0, 0);
+		assert( !cron_should_invoke(cron, &t3) );
+		cron_destroy(cron);
+	}
+	{
+		str_cron = "* */2 */4 11 *";
+		cron = cron_create(str_cron, strlen(str_cron));
+		_TM(t, 0, 2, 5, 11, 0);
+		assert( cron_should_invoke(cron, &t) );
+		_TM(t1, 0, 6, 9, 11, 0);
+		assert( cron_should_invoke(cron, &t1) );
+		_TM(t2, 0, 6, 6, 11, 0);
+		assert( !cron_should_invoke(cron, &t2) );
+		cron_destroy(cron);
+	}
+	{
+		str_cron = "* 2-4 * * *";
+		cron = cron_create(str_cron, strlen(str_cron));
+		_TM(t, 0, 1, 1, 0, 0);
+		assert( !cron_should_invoke(cron, &t) );
+		_TM(t1, 0, 2, 1, 0, 0);
+		assert( cron_should_invoke(cron, &t1) );
+		cron_destroy(cron);
+	}
 	return 0;
 }
 #endif
