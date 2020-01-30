@@ -35,15 +35,17 @@ mon_dump_status(mon_t *mon) {
 	int bytes = 0;
 	time_t ti = time(NULL);
 	write(fd, "{\n", 2);
-	bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t},\n",
-	 				mon->name, ti, getpid());
+	// write group start time and pid
+	bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t},\n",
+					mon->name, mon->time, getpid());
 	write(fd, buf, bytes);					 
 	{
 		monitor_t *m = mon->monitors;
 		while (m) 
 		{	
+			// write child process start time and pid
 			time_t mti = m->last_restart_at / 1000;
-			bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld, \"pid\" : %d\n\t}",
+			bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t}",
 							 m->name, mti ? mti : ti, m->pid);
 			write(fd, buf, bytes);
 			m = m->next_monitor;
@@ -170,11 +172,13 @@ _status_parse_json(json_value *value)
 		} else {
 			st = calloc(1, sizeof(mon_status_t));
 		}
+		// read process config name
 		strncpy((char *)st->name, entry->name, entry->name_length);		
 		json_value *v = entry->value;
 		if (v->type == json_object) {
 			int len = v->u.object.length;
 			for (int j=0; j<len; j++) {
+				// read process start time and pid
 				json_object_entry *entry = &v->u.object.values[j];
 				if (_entry_name_equal(entry, "time")) {
 					st->time = entry->value->u.integer;

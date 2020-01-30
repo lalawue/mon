@@ -206,5 +206,18 @@ _mon_parse_json(json_value *value)
 		}
 	}
 
+	if (!mon->name || !mon->monitors) {
+		return NULL;
+	}
+
+	monitor_t *m = mon->monitors;
+	while (m) {
+		monitor_t *next = m->next_monitor;
+		if (!m->cmd) {
+			return NULL;
+		}
+		m = next;
+	}
+
 	return mon;
 }

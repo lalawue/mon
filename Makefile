@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 SRC = src/mon_sched.c deps/ms.c deps/json.c deps/config.c deps/status.c
 OBJ = $(SRC:.c=.o)
-CFLAGS = -D_GNU_SOURCE -std=c99 -I deps/
+CFLAGS = -O2 -D_GNU_SOURCE -std=c99 -I deps/
 BIN = mon_sched
 
 $(BIN): $(OBJ)
@@ -12,7 +12,7 @@ $(BIN): $(OBJ)
 	$(CC) $< $(CFLAGS) -c -o $@
 
 install:
-	cp -f mon $(PREFIX)/bin/$(BIN)
+	cp -f $(BIN) $(PREFIX)/bin/$(BIN)
 
 uninstall:
 	rm -f $(PREFIX)/bin/$(BIN)

@@ -403,6 +403,8 @@ main(int argc, char *argv[]) {
 	g_mon = mon_create(argv[1]);
 	if (g_mon == NULL) {
 		return 0;
+	} else {
+		g_mon->time = time(NULL);
 	}
 	
 	// signals

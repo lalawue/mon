@@ -41,6 +41,7 @@ typedef struct {
 	const char *logfile;
     const char *pidfile;
 	int daemon;
+	time_t time; // start time
 	monitor_t *monitors;
 } mon_t;
 
