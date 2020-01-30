@@ -171,13 +171,12 @@ _mon_parse_json(json_value *value)
 		return NULL;
 	}
 
-	mon_t *mon = calloc(1, sizeof(*mon));
-	monitor_t *last_monitor = NULL;
+	mon_t *mon = calloc(1, sizeof(*mon));	
 
 	mon->logfile = "/dev/null";
 	
 	int length = value->u.object.length;
-	for (int i=0; i<length; i++) {
+	for (int i=length-1; i>=0; i--) {
 		json_object_entry *entry = &value->u.object.values[i];
 		if (_entry_name_equal(entry, "name")) {
 			_value_string_dup(entry->value, &mon->name);
@@ -197,12 +196,13 @@ _mon_parse_json(json_value *value)
 		}
 		monitor_t *m = _mon_parse_object(entry);
 		if (m) {
-			if (mon->monitors == NULL) {
-				mon->monitors = m;
-			} else {
-				last_monitor->next_monitor = m;
+			m->next_monitor = mon->monitors;
+			mon->monitors = m;
+			if (m->cron) {
+				m->cron->opaque = m;
+				m->cron->next = mon->crons;
+				mon->crons = m->cron;
 			}
-			last_monitor = m;
 		}
 	}
 
