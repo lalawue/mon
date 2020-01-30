@@ -25,9 +25,9 @@ mon_dump_status(mon_t *mon) {
 		return;
 	}
 
-	int fd = open(mon->pidfile, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	int fd = open(mon->pidfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-
+		return;
 	}
 
 	const int buf_len = 4096;

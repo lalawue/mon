@@ -150,7 +150,7 @@ _mon_parse_object(json_object_entry *entry)
 			_value_string_dup(entry->value, &m->on_restart);
 		}
 		if (_entry_name_equal(entry, "cron")) {
-			_value_string_dup(entry->value, &m->cron);
+			m->cron = cron_create(entry->value->u.string.ptr, entry->value->u.string.length);
 		}
 		if (_entry_name_equal(entry, "attempts")) {
 			m->max_attempts = entry->value->u.integer;

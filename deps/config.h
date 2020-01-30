@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
+#include "cron.h"
 
 /*
  * Monitor.
@@ -21,7 +22,7 @@ struct s_monitor {
     const char *logfile;
     const char *on_error;
     const char *on_restart;
-	const char *cron;
+	cron_t *cron;
     int64_t last_restart_at;
     int64_t clock;
     int max_sleepsec;
@@ -43,6 +44,7 @@ typedef struct {
 	int daemon;
 	time_t time; // start time
 	monitor_t *monitors;
+	cron_t *crons;
 } mon_t;
 
 mon_t* mon_create(const char *file_path);
