@@ -1,7 +1,7 @@
 //
 // config.h
 //
-// Copyright (c) 2020 lalawue Holowaychuk
+// Copyright (c) 2020 lalawue
 //
 
 #ifndef _CONFIG_H

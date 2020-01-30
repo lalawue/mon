@@ -1,6 +1,6 @@
 # mon_sched(1)
 
-  group process supervisor, using a JSON config file, fork from https://github.com/tj/mon, and the origin `mon` was:
+  group process supervisor, using a JSON config file, fork from https://github.com/tj/mon, depends on  https://github.com/udp/json-parser, and the origin `mon` was:
 
   Super-simple monitoring program.
 

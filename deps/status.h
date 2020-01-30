@@ -1,7 +1,7 @@
 //
 // status.h
 //
-// Copyright (c) 2020 lalawue Holowaychuk
+// Copyright (c) 2020 lalawue
 //
 
 #ifndef _STATUS_H

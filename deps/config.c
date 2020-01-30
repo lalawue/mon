@@ -1,7 +1,7 @@
 //
 // config.c
 //
-// Copyright (c) 2020 lalawue Holowaychuk
+// Copyright (c) 2020 lalawue
 //
 
 #include <stdio.h>
