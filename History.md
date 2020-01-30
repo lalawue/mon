@@ -1,4 +1,10 @@
 
+1.3.0 / 2020-01-29
+==================
+
+* refactoring as a group child process monitor
+* rename to mon_sched and using JSON as config file format
+
 1.2.3 / 2013-12-01
 ==================
 
