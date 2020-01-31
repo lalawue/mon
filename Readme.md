@@ -19,8 +19,8 @@ Usage: mon_sched [options | JSON_CONFIG]
 Options:
 
   -r, <config_json>             run group config
-  -v, 		                    output program version
-  -h, 		                    output help information
+  -v,                           output program version
+  -h, 		                output help information
   -s, <pid_file>                check group child process status
 
 ```
@@ -58,7 +58,7 @@ mon : mon2 sh -c "example/program2.sh"
 ```js
 ➜  mon_sched git:(master) ✗ ./mon_sched -s mon_sched.pid
 mon_group [85592] : alive : uptime 12 seconds
-mon1 [85593] : dead
+mon1 [-1] : dead
 mon2 [85782] : alive : uptime 2 seconds
 ```
 
