@@ -125,7 +125,7 @@ _mon_parse_object(json_object_entry *entry)
 	m->on_error = NULL;
 	m->logfile = "/dev/null";
 	m->max_sleepsec = 1;
-	m->max_attempts = 0; // infinite
+	m->max_attempts = 10;
 	m->clock = 60000;
 	m->name = strndup(entry->name, entry->name_length);
 

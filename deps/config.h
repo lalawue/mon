@@ -16,7 +16,7 @@
  * Monitor.
  */
 struct s_monitor {
-	int pid; // for match
+	int pid; // 0 means not running
     const char *name;
     const char *cmd; // program with it's parameters
     const char *logfile;

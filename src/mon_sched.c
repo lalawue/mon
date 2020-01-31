@@ -229,11 +229,11 @@ _monitor_with_pid(pid_t pid)
 
 /*
  * find monitor in sleep state, increase sleep time, return the close to restart one,
- * also return has_other_child flag
+ * if no sleep monitor, return NULL
  */
 
 static monitor_t*
-_increase_sleep_monitor(mon_t *mon, int *has_other_child) {
+_increase_sleep_monitor(mon_t *mon) {
 	int max = 0x7fffffff;
 	monitor_t *close_to_restart = NULL;
 	monitor_t *m = mon->monitors;
@@ -244,12 +244,36 @@ _increase_sleep_monitor(mon_t *mon, int *has_other_child) {
 				max = m->max_sleepsec - m->sleepsec;
 				close_to_restart = m;	
 			}
-		} else {
-			*has_other_child = 1;
 		}
 		m = m->next_monitor;
 	}
 	return close_to_restart;
+}
+
+/*
+ * find cron monitor ready to run, return NULL otherwise
+ */
+
+static monitor_t*
+_ready_cron_monitor(mon_t *mon, struct tm *ptm) {
+	monitor_t *m = NULL;
+	cron_t *cron = mon->crons;
+	while (cron) {
+		m = (monitor_t *)cron->opaque;
+		if (cron_should_invoke(cron, ptm) && m->pid == 0) {
+			return m;
+		}
+		cron = cron->next;
+	}
+	return NULL;
+}
+
+static struct tm*
+_current_tm() {
+	static struct tm current_tm;
+	time_t ti = time(NULL);
+	gmtime_r(&ti, &current_tm);
+	return &current_tm;
 }
 
 typedef void (*last_one_callback)();
@@ -259,8 +283,12 @@ typedef void (*last_one_callback)();
  */
 
 void
-start(monitor_t *monitor, last_one_callback last_callback) {
-monitor_exec: {
+start(monitor_t *monitor, struct tm *start_tm, last_one_callback last_callback) {
+monitor_exec: {	
+	if (monitor->cron && !cron_should_invoke(monitor->cron, start_tm)) {
+		goto monitor_skip;
+	}
+
 	pid_t pid = fork();
 	int status;
 
@@ -278,68 +306,84 @@ monitor_exec: {
 		log("%s pid %d", monitor->name, pid);
 		monitor->pid = pid;
 
-		if (!last_callback) {
-			// wait at last one
-			return;
+		monitor_skip: {
+			if (!last_callback) {
+				// callback at last one
+				return;
+			}
+			last_callback();
+			last_callback = NULL;
 		}
 
-		last_callback();
-
-		monitor_sleep: {
-			monitor_t *m = NULL;
-			int has_other_child = 0;
-			while ((m = _increase_sleep_monitor(g_mon, &has_other_child))) {
+		// wait cron or sleep monitors
+		minitor_wait: {
+			monitor_t *sleep_m = NULL;
+			monitor_t *cron_m = NULL;
+			struct tm *ptm = _current_tm();
+			while ((sleep_m = _increase_sleep_monitor(g_mon)) || g_mon->crons)
+			{
+				// always sleep 1 seconds
 				sleep(1);
+
+				cron_m = _ready_cron_monitor(g_mon, ptm);
+				if (cron_m) {
+					monitor = cron_m;
+					goto monitor_exec;
+				}
+
 				pid_t tmp_pid = waitpid(-1, &status, WNOHANG);
-				if (has_other_child && tmp_pid > 0) {
+				
+				if (tmp_pid > 0) {
 					pid = tmp_pid;
 					monitor = _monitor_with_pid(pid);
 					goto monitor_signal;
-				} else if (m->sleepsec >= m->max_sleepsec) {
-					m->sleepsec = 0;
-					monitor = m;
+				} 
+				
+				if (sleep_m && (sleep_m->sleepsec >= sleep_m->max_sleepsec)) {
+					sleep_m->sleepsec = 0;
+					monitor = sleep_m;
 					goto monitor_error;
 				}
 			}
 		}
 					
-		// wait for exit
+		// no cron definition, or sleep monitors, wait any child exit
 		pid = waitpid(-1, &status, 0);
 		monitor = _monitor_with_pid(pid);
 		if (monitor == NULL) {
 			return;
 		}
 
-		monitor_signal:
-		// signalled		
-		if (WIFSIGNALED(status)) {
-			log("%s signal(%s)", monitor->name, strsignal(WTERMSIG(status)));
-			log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
-			sleep(1);					
-			if (monitor->max_sleepsec > 1) {
-				monitor->sleepsec = 1;
-				goto monitor_sleep;
-			} else {
-				goto monitor_error;
+		monitor_signal: {
+			monitor->pid = 0; // reset
+			if (WIFSIGNALED(status)) {
+				log("%s signal(%s)", monitor->name, strsignal(WTERMSIG(status)));
+				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
+				sleep(1);					
+				if (monitor->max_sleepsec > 1) {
+					monitor->sleepsec = 1;
+					goto minitor_wait;
+				} else {
+					goto monitor_error;
+				}
+			}			
+			if (WEXITSTATUS(status)) {
+				log("%s exit(%d)", monitor->name, WEXITSTATUS(status));
+				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
+				sleep(1);					
+				if (monitor->max_sleepsec > 1) {
+					monitor->sleepsec = 1;
+					goto minitor_wait;
+				} else {
+					goto monitor_error;
+				}
 			}
-		}
-
-		// check status
-		if (WEXITSTATUS(status)) {
-			log("%s exit(%d)", monitor->name, WEXITSTATUS(status));
-			log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
-			sleep(1);					
-			if (monitor->max_sleepsec > 1) {
-				monitor->sleepsec = 1;
-				goto monitor_sleep;
-			} else {
-				goto monitor_error;
-			}
-		}
+		} // monitor_signal
 	}
 
 	// restart
 	monitor_error: {
+		monitor->pid = 0; // reset
 		if (monitor->on_restart) {
 			exec_restart_command(monitor, pid);
 		}
@@ -418,10 +462,11 @@ main(int argc, char *argv[]) {
   	}
 
 	last_one_callback callback = g_mon->pidfile ? write_pidfile : NULL;
+	struct tm *ptm = _current_tm();
 
 	monitor_t *m = g_mon->monitors;
 	while (m) {
-	  	start(m, !m->next_monitor ? callback : NULL);
+	  	start(m, ptm, (!m->next_monitor ? callback : NULL));
 		m = m->next_monitor;
 	}
 
