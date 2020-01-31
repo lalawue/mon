@@ -31,6 +31,7 @@ struct s_monitor {
 	int sleepsec;				// sleeped time before next restart
     int max_attempts;			// max restart count
     int attempts;				// restart count
+	int status;					// exit status
     struct s_monitor *next_monitor;
 };
 

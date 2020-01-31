@@ -310,7 +310,6 @@ monitor_exec: {
 	}
 
 	pid_t pid = fork();
-	int status;
 
 	if (pid == -1) {
 		perror("fork()");
@@ -337,6 +336,7 @@ monitor_exec: {
 
 		// wait cron or sleep monitors
 		minitor_wait: {
+			int status;
 			for (;;) {			
 				sleep(1); // always sleep 1 seconds
 
@@ -348,6 +348,7 @@ monitor_exec: {
 				pid = waitpid(-1, &status, WNOHANG);				
 				if (pid > 0) {
 					monitor = _monitor_with_pid(pid);
+					monitor->status = status;
 					goto monitor_signal;
 				} 
 				
@@ -361,8 +362,8 @@ monitor_exec: {
 
 		monitor_signal: {
 			monitor->pid = K_INVALID_MONITOR_PID;
-			if (WIFSIGNALED(status)) {
-				log("%s signal(%s)", monitor->name, strsignal(WTERMSIG(status)));
+			if (WIFSIGNALED(monitor->status)) {
+				log("%s signal(%s)", monitor->name, strsignal(WTERMSIG(monitor->status)));
 				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
 				if (monitor->max_sleepsec > 1) {
 					monitor->sleepsec = 1;
@@ -372,8 +373,8 @@ monitor_exec: {
 					goto monitor_error;
 				}
 			}
-			if (WEXITSTATUS(status)) {
-				log("%s exit(%d)", monitor->name, WEXITSTATUS(status));
+			if (WEXITSTATUS(monitor->status)) {
+				log("%s exit(%d)", monitor->name, WEXITSTATUS(monitor->status));
 				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
 				if (monitor->max_sleepsec > 1) {
 					monitor->sleepsec = 1;
@@ -389,18 +390,22 @@ monitor_exec: {
 	// restart
 	monitor_error: {
 		monitor->pid = K_INVALID_MONITOR_PID;
-		const int64_t ms = ms_since_last_restart(monitor);
-		if (attempts_exceeded(monitor, ms)) {
-			char *time = milliseconds_to_long_string(60000 - monitor->clock);
-			log("%s %d restarts within %s, bailing", monitor->name, monitor->max_attempts, time);
-			if (monitor->on_error) {
-				exec_error_command(monitor, pid);
+		int64_t ms = ms_since_last_restart(monitor);
+		bool exit_normal = (WIFSIGNALED(monitor->status) | WEXITSTATUS(monitor->status)) == 0;
+		if (exit_normal || attempts_exceeded(monitor, ms)) {
+			if (!exit_normal) {
+				char *time = milliseconds_to_long_string(60000 - monitor->clock);
+				log("%s %d restarts within %s, bailing", monitor->name, monitor->max_attempts, time);
+				if (monitor->on_error) {
+					exec_error_command(monitor, pid);
+				}
 			}
 			if (mon_monitor_try_remove(g_mon, monitor)) {
 				log("%s bye :)", monitor->name);
 			} else {
 				mon_monitor_reset(monitor);
 			}
+			// if no monitors
 			if (!g_mon->monitors) {
 				log("%s exit, no monitors", g_mon->name);
 				exit(2);
