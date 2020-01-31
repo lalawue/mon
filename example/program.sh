@@ -9,5 +9,5 @@ echo two
 sleep 2
 echo three
 sleep 2
-echo exiting
+echo exiting 1
 exit 1

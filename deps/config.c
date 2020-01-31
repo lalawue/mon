@@ -73,11 +73,23 @@ mon_create(const char* file_path)
 }
 
 static void
-_moniter_free(void *p)
-{
+_check_free(void *p) {
 	if (p) {
 		free(p);
 	}
+}
+
+static void
+_monitor_free(monitor_t *m) {
+	_check_free((void *)m->name);
+	_check_free((void *)m->cmd);
+	_check_free((void *)m->logfile);
+	_check_free((void *)m->on_error);
+	_check_free((void *)m->on_restart);
+	if (m->cron) {
+		cron_destroy(m->cron);
+	}
+	_check_free(m);
 }
 
 void
@@ -87,16 +99,41 @@ mon_destory(mon_t* mon)
 		monitor_t *m = mon->monitors;
 		while (m)  {
 			monitor_t *next = m->next_monitor;
-			_moniter_free((void *)m->name);
-			_moniter_free((void *)m->cmd);
-			_moniter_free((void *)m->logfile);
-			_moniter_free((void *)m->on_error);
-			_moniter_free((void *)m->on_restart);
+			_monitor_free(m);
 			m = next;
 		}
-		_moniter_free((void *)mon->name);
-		_moniter_free((void *)mon->pidfile);
+		_check_free((void *)mon->name);
+		_check_free((void *)mon->pidfile);
 		free(mon);
+	}
+}
+
+bool
+mon_monitor_try_remove(mon_t *mon, monitor_t *monitor) {
+	if (mon && monitor && !monitor->cron) {
+		if (mon->monitors == monitor) {
+			mon->monitors = monitor->next_monitor;
+		} else {
+			monitor_t *pre = mon->monitors;
+			while (pre->next_monitor != monitor) {
+				pre = pre->next_monitor;
+			}
+			if (pre && pre->next_monitor == monitor) {
+				pre->next_monitor = monitor->next_monitor;
+			}
+		}
+		_monitor_free(monitor);
+		return true;
+	}
+	return false;
+}
+
+void
+mon_monitor_reset(monitor_t *monitor) {
+	if (monitor) {
+		monitor->pid = K_INVALID_MONITOR_PID;
+		monitor->attempts = 0;
+		monitor->clock = 60000;
 	}
 }
 
@@ -121,13 +158,14 @@ _mon_parse_object(json_object_entry *entry)
 
 	monitor_t *m = calloc(1, sizeof(*m));
 
+	m->pid = K_INVALID_MONITOR_PID;
 	m->on_restart = NULL;
 	m->on_error = NULL;
 	m->logfile = "/dev/null";
 	m->max_sleepsec = 1;
 	m->max_attempts = 10;
-	m->clock = 60000;
 	m->name = strndup(entry->name, entry->name_length);
+	mon_monitor_reset(m);
 
 	json_value *value = entry->value;
 
@@ -171,7 +209,7 @@ _mon_parse_json(json_value *value)
 		return NULL;
 	}
 
-	mon_t *mon = calloc(1, sizeof(*mon));	
+	mon_t *mon = calloc(1, sizeof(*mon));
 
 	mon->logfile = "/dev/null";
 	
@@ -198,11 +236,6 @@ _mon_parse_json(json_value *value)
 		if (m) {
 			m->next_monitor = mon->monitors;
 			mon->monitors = m;
-			if (m->cron) {
-				m->cron->opaque = m;
-				m->cron->next = mon->crons;
-				mon->crons = m->cron;
-			}
 		}
 	}
 
@@ -210,13 +243,13 @@ _mon_parse_json(json_value *value)
 		return NULL;
 	}
 
+	// validate all monitors cmd
 	monitor_t *m = mon->monitors;
 	while (m) {
-		monitor_t *next = m->next_monitor;
 		if (!m->cmd) {
 			return NULL;
 		}
-		m = next;
+		m = m->next_monitor;
 	}
 
 	return mon;

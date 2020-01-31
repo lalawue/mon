@@ -8,5 +8,5 @@ sleep 2
 echo 22222
 sleep 2
 echo 33333
-echo exiting
-exit 1
+echo exiting 0
+exit 0

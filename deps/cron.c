@@ -205,8 +205,6 @@ cron_create(const char *entry, int entry_len)
 
 	cron_t *cron = malloc(sizeof(cron_t));
 	memset(cron, 0, sizeof(cron_t));
-	cron->opaque = NULL;
-	cron->next = NULL;
 
 	int is = 0;
 
@@ -260,19 +258,24 @@ _is_bit_true(unsigned char *pbits, int bytes, int bits_index) {
 	return false;
 }
 
-
 bool
-cron_should_invoke(cron_t *cron, struct tm *ptm) {
+cron_in_timearea(cron_t *cron, struct tm *ptm) {
 	if (cron && ptm) {
 		bool in_min = _is_bit_true(cron->min, sizeof(cron->min), ptm->tm_min);
 		bool in_hour = _is_bit_true(cron->hour, sizeof(cron->hour), ptm->tm_hour);
 		bool in_mday = _is_bit_true(cron->mdays, sizeof(cron->mdays), ptm->tm_mday - 1);
 		bool in_mon = _is_bit_true(cron->mon, sizeof(cron->mon), ptm->tm_mon);
 		bool in_wday = _is_bit_true(cron->wdays, sizeof(cron->wdays), ptm->tm_wday % 7);
-		//printf("min:%d hour:%d mday:%d mon:%d wday:%d\n", in_min, in_hour, in_mday, in_mon, in_wday);
 		return in_min && in_hour && in_mday && in_mon && in_wday;
 	}
 	return false;
+}
+
+void
+cron_set_has_running(cron_t *cron, bool has_running) {
+	if (cron) {
+		cron->has_running = has_running;
+	}
 }
 
 #ifdef CRON_TEST
@@ -289,6 +292,13 @@ _dump_bits(unsigned char *pbits, int bytes) {
 	if (i % 10 != 0) {
 		printf("\n");
 	}
+}
+bool
+cron_should_invoke(cron_t *cron, struct tm *ptm) {
+	if (cron && ptm) {				
+		return !cron->has_running && cron_in_timearea(cron, ptm);
+	}
+	return true;
 }
 #define _TM(T, A, B, C, D, E) struct tm T = { \
 			.tm_min = A,	\
@@ -308,12 +318,16 @@ int main(int arg, char *argv[]) {
 		str_cron = "* 1,8,12 * * *";
 		cron = cron_create(str_cron, strlen(str_cron));
 		_TM(t, 0, 1, 1, 0, 0);
+		cron->has_running = false;
 		assert( cron_should_invoke(cron, &t) );
 		_TM(t1, 0, 8, 1, 0, 0);
+		cron->has_running = false;		
 		assert( cron_should_invoke(cron, &t1) );
 		_TM(t2, 0, 12, 1, 0, 0);
+		cron->has_running = false;		
 		assert( cron_should_invoke(cron, &t2) );
 		_TM(t3, 0, 11, 1, 0, 0);
+		cron->has_running = false;
 		assert( !cron_should_invoke(cron, &t3) );
 		cron_destroy(cron);
 	}
@@ -321,10 +335,13 @@ int main(int arg, char *argv[]) {
 		str_cron = "* */2 */4 11 *";
 		cron = cron_create(str_cron, strlen(str_cron));
 		_TM(t, 0, 2, 5, 11, 0);
+		cron->has_running = false;
 		assert( cron_should_invoke(cron, &t) );
 		_TM(t1, 0, 6, 9, 11, 0);
+		cron->has_running = false;
 		assert( cron_should_invoke(cron, &t1) );
 		_TM(t2, 0, 6, 6, 11, 0);
+		cron->has_running = false;
 		assert( !cron_should_invoke(cron, &t2) );
 		cron_destroy(cron);
 	}
@@ -332,9 +349,23 @@ int main(int arg, char *argv[]) {
 		str_cron = "* 2-4 * * *";
 		cron = cron_create(str_cron, strlen(str_cron));
 		_TM(t, 0, 1, 1, 0, 0);
+		cron->has_running = false;
 		assert( !cron_should_invoke(cron, &t) );
 		_TM(t1, 0, 2, 1, 0, 0);
+		cron->has_running = false;
 		assert( cron_should_invoke(cron, &t1) );
+		cron_destroy(cron);
+	}
+	{
+		str_cron = "2-4,6-8 * * * *";
+		cron = cron_create(str_cron, strlen(str_cron));
+		_TM(t, 0, 1, 1, 0, 0);
+		cron->has_running = false;
+		printf("cron: %s\n", str_cron);
+		for (int i=0; i<10; i++) {
+			t.tm_min = i;
+			printf("min %d should invoke\n", cron_should_invoke(cron, &t));
+		}
 		cron_destroy(cron);
 	}
 	return 0;

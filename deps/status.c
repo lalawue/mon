@@ -197,7 +197,7 @@ _status_parse_json(json_value *value)
 
 static int
 _alive(pid_t pid) {
-  return 0 == kill(pid, 0);
+  return (pid >= 0) && (0 == kill(pid, 0));
 }
 
 void

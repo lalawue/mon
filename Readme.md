@@ -18,9 +18,10 @@ Usage: mon_sched [options | JSON_CONFIG]
 
 Options:
 
+  -r, <config_json>             run group config
   -v, 		                    output program version
   -h, 		                    output help information
-  -s, <pidfile>                 check group child process status
+  -s, <pid_file>                check group child process status
 
 ```
 
@@ -29,7 +30,7 @@ Options:
   The most simple use of `mon_sched(1)` is to simply keep a command running:
 
 ```js
-➜  mon_sched git:(master) ✗ ./mon_sched example/mon_group.json
+➜  mon_sched git:(master) ✗ ./mon_sched -r example/mon_group.json
 mon : mon1 pid 85415
 mon : mon2 pid 85416
 mon : mon1 sh -c "example/program.sh"

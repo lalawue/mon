@@ -25,7 +25,7 @@
  * Program version.
  */
 
-#define kVERSION "1.3.0"
+#define kVERSION "1.3.1"
 
 static mon_t *g_mon;
 
@@ -194,20 +194,22 @@ ms_since_last_restart(monitor_t *monitor) {
 
 int
 attempts_exceeded(monitor_t *monitor, int64_t ms) {
-  monitor->attempts++;
-  monitor->clock -= ms;
+	monitor->attempts++;
+	monitor->clock -= ms;
 
-  // reset
-  if (monitor->clock <= 0) {
-    monitor->clock = 60000;
-    monitor->attempts = 0;
-    return 0;
-  }
+	// reset
+	if (monitor->clock <= 0) {
+		monitor->clock = 60000;
+		monitor->attempts = 0;
+		return 0;
+	}
 
-  // all good
-  if (monitor->attempts < monitor->max_attempts) return 0;
+	// all good
+	if (monitor->attempts < monitor->max_attempts) {
+		return 0;
+	}
 
-  return 1;
+	return 1;
 }
 
 /*
@@ -252,20 +254,25 @@ _increase_sleep_monitor(mon_t *mon) {
 
 /*
  * find cron monitor ready to run, return NULL otherwise
+ * set in-active to cro
  */
 
 static monitor_t*
 _ready_cron_monitor(mon_t *mon, struct tm *ptm) {
-	monitor_t *m = NULL;
-	cron_t *cron = mon->crons;
-	while (cron) {
-		m = (monitor_t *)cron->opaque;
-		if (cron_should_invoke(cron, ptm) && m->pid == 0) {
-			return m;
+	monitor_t *m = mon->monitors, *ready_m = NULL;
+	for ( ; m; m=m->next_monitor) {
+		if (!m->cron || m->pid > K_INVALID_MONITOR_PID) {
+			continue;
 		}
-		cron = cron->next;
+		if (cron_in_timearea(m->cron, ptm)) {
+			if (!m->cron->has_running) {
+				ready_m = m;
+			}
+		} else {
+			cron_set_has_running(m->cron, false);
+		}
 	}
-	return NULL;
+	return ready_m;
 }
 
 static struct tm*
@@ -276,6 +283,14 @@ _current_tm() {
 	return &current_tm;
 }
 
+static char*
+_current_tm_string(struct tm *t) {
+	static char buf[32];
+	snprintf(buf, 32, "%d/%d/%d %d:%d",
+			1900 + t->tm_year, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);
+	return buf;
+}
+
 typedef void (*last_one_callback)();
 
 /*
@@ -283,10 +298,15 @@ typedef void (*last_one_callback)();
  */
 
 void
-start(monitor_t *monitor, struct tm *start_tm, last_one_callback last_callback) {
-monitor_exec: {	
-	if (monitor->cron && !cron_should_invoke(monitor->cron, start_tm)) {
-		goto monitor_skip;
+start(monitor_t *monitor, last_one_callback last_callback) {
+monitor_exec: {
+	if (monitor->cron) {
+		// cron skip when not in time area, or has running before
+		struct tm *t = _current_tm();
+		if (!cron_in_timearea(monitor->cron, t) || monitor->cron->has_running) {
+			log("%s cron skip %s", monitor->name, _current_tm_string(t));
+			goto monitor_skip;
+		}
 	}
 
 	pid_t pid = fork();
@@ -295,7 +315,7 @@ monitor_exec: {
 	if (pid == -1) {
 		perror("fork()");
 		exit(1);
-	} else if (pid == 0)  {
+	} else if (pid == 0)  {		
 		signal(SIGTERM, SIG_DFL);
 		signal(SIGQUIT, SIG_DFL);
 		log("%s sh -c \"%s\"", monitor->name, monitor->cmd);
@@ -303,8 +323,9 @@ monitor_exec: {
 		perror("execl()");
 		exit(1);
 	} else {
-		log("%s pid %d", monitor->name, pid);
 		monitor->pid = pid;
+		cron_set_has_running(monitor->cron, true);
+		log("%s pid %d at %s", monitor->name, pid, _current_tm_string(_current_tm()));
 
 		monitor_skip: {
 			if (!last_callback) {
@@ -312,69 +333,53 @@ monitor_exec: {
 				return;
 			}
 			last_callback();
-			last_callback = NULL;
 		}
 
 		// wait cron or sleep monitors
 		minitor_wait: {
-			monitor_t *sleep_m = NULL;
-			monitor_t *cron_m = NULL;
-			struct tm *ptm = _current_tm();
-			while ((sleep_m = _increase_sleep_monitor(g_mon)) || g_mon->crons)
-			{
-				// always sleep 1 seconds
-				sleep(1);
+			for (;;) {			
+				sleep(1); // always sleep 1 seconds
 
-				cron_m = _ready_cron_monitor(g_mon, ptm);
-				if (cron_m) {
-					monitor = cron_m;
+				monitor = _ready_cron_monitor(g_mon, _current_tm());
+				if (monitor) {
 					goto monitor_exec;
 				}
 
-				pid_t tmp_pid = waitpid(-1, &status, WNOHANG);
-				
-				if (tmp_pid > 0) {
-					pid = tmp_pid;
+				pid = waitpid(-1, &status, WNOHANG);				
+				if (pid > 0) {
 					monitor = _monitor_with_pid(pid);
 					goto monitor_signal;
 				} 
 				
-				if (sleep_m && (sleep_m->sleepsec >= sleep_m->max_sleepsec)) {
-					sleep_m->sleepsec = 0;
-					monitor = sleep_m;
+				monitor = _increase_sleep_monitor(g_mon);
+				if (monitor && (monitor->sleepsec > monitor->max_sleepsec)) {
+					monitor->sleepsec = 0;
 					goto monitor_error;
 				}
 			}
 		}
-					
-		// no cron definition, or sleep monitors, wait any child exit
-		pid = waitpid(-1, &status, 0);
-		monitor = _monitor_with_pid(pid);
-		if (monitor == NULL) {
-			return;
-		}
 
 		monitor_signal: {
-			monitor->pid = 0; // reset
+			monitor->pid = K_INVALID_MONITOR_PID;
 			if (WIFSIGNALED(status)) {
 				log("%s signal(%s)", monitor->name, strsignal(WTERMSIG(status)));
 				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
-				sleep(1);					
 				if (monitor->max_sleepsec > 1) {
 					monitor->sleepsec = 1;
 					goto minitor_wait;
 				} else {
+					sleep(1);
 					goto monitor_error;
 				}
-			}			
+			}
 			if (WEXITSTATUS(status)) {
 				log("%s exit(%d)", monitor->name, WEXITSTATUS(status));
 				log("%s sleep(%d)", monitor->name, monitor->max_sleepsec);
-				sleep(1);					
 				if (monitor->max_sleepsec > 1) {
 					monitor->sleepsec = 1;
 					goto minitor_wait;
 				} else {
+					sleep(1);
 					goto monitor_error;
 				}
 			}
@@ -383,22 +388,30 @@ monitor_exec: {
 
 	// restart
 	monitor_error: {
-		monitor->pid = 0; // reset
-		if (monitor->on_restart) {
-			exec_restart_command(monitor, pid);
-		}
-		int64_t ms = ms_since_last_restart(monitor);
-		monitor->last_restart_at = timestamp();
-		log("%s last restart %s ago", monitor->name, milliseconds_to_long_string(ms));
-		log("%s %d attempts remaining", monitor->name, monitor->max_attempts - monitor->attempts);
+		monitor->pid = K_INVALID_MONITOR_PID;
+		const int64_t ms = ms_since_last_restart(monitor);
 		if (attempts_exceeded(monitor, ms)) {
 			char *time = milliseconds_to_long_string(60000 - monitor->clock);
 			log("%s %d restarts within %s, bailing", monitor->name, monitor->max_attempts, time);
 			if (monitor->on_error) {
 				exec_error_command(monitor, pid);
 			}
-			log("%s bye :)", monitor->name);
-			exit(2);
+			if (mon_monitor_try_remove(g_mon, monitor)) {
+				log("%s bye :)", monitor->name);
+			} else {
+				mon_monitor_reset(monitor);
+			}
+			if (!g_mon->monitors) {
+				log("%s exit, no monitors", g_mon->name);
+				exit(2);
+			}
+		} else {
+			log("%s %d attempts remaining", monitor->name, monitor->max_attempts - monitor->attempts);			
+			if (monitor->on_restart) {
+				exec_restart_command(monitor, pid);
+			}
+			monitor->last_restart_at = timestamp();
+			log("%s last restart %s ago", monitor->name, milliseconds_to_long_string(ms));
 		}
 		goto monitor_exec;
 	}
@@ -411,15 +424,15 @@ monitor_exec: {
 static void
 _show_help(char *app_name) {
 	printf("Usage:\n");
-	printf("%s JSON_CONFIG\n", app_name);
+	printf("%s -r config_json, run with group config\n", app_name);
 	printf("%s -v,\t\tshow version\n", app_name);
 	printf("%s -h,\t\tshow help\n", app_name);
-	printf("%s -s pidfile,\tshow status\n", app_name);
+	printf("%s -s pid_file, show group pid status\n", app_name);
 }
 
 int
 main(int argc, char *argv[]) {
-	if (argc < 2) {
+	if (argc < 3) {
 		_show_help(argv[0]);
 		return 0;
 	}
@@ -435,16 +448,17 @@ main(int argc, char *argv[]) {
 	}
 
 	if (strcmp(argv[1], "-s") == 0) {
-		if (argc > 2) {
-			show_status_of(argv[2]);
-		} else {
-			_show_help(argv[0]);
-		}
+		show_status_of(argv[2]);
+		return 0;
+	}
+
+	if (strcmp(argv[1], "-r") != 0) {
+		_show_help(argv[0]);
 		return 0;
 	}
 
 	// crete global mon instance
-	g_mon = mon_create(argv[1]);
+	g_mon = mon_create(argv[2]);
 	if (g_mon == NULL) {
 		return 0;
 	} else {
@@ -462,11 +476,10 @@ main(int argc, char *argv[]) {
   	}
 
 	last_one_callback callback = g_mon->pidfile ? write_pidfile : NULL;
-	struct tm *ptm = _current_tm();
 
 	monitor_t *m = g_mon->monitors;
 	while (m) {
-	  	start(m, ptm, (!m->next_monitor ? callback : NULL));
+	  	start(m, !m->next_monitor ? callback : NULL);
 		m = m->next_monitor;
 	}
 
