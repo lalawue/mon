@@ -5,7 +5,7 @@ CFLAGS = -O2 -D_GNU_SOURCE -std=c99 -I deps/
 BIN = mon_sched
 
 $(BIN): $(OBJ)
-	$(CC) $(OBJ) -o $@
+	$(CC) $(OBJ) -o $@ -lm
 
 .SUFFIXES: .c .o
 .c.o:
