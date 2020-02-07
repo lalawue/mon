@@ -14,13 +14,13 @@
 
 ```
 
-Usage: mon_sched [options | JSON_CONFIG]
+Usage: mon_sched options
 
 Options:
 
   -r, <config_json>             run group config
   -v,                           output program version
-  -h, 		                    output help information
+  -h,                           output help information
   -s, <pid_file>                check group child process status
 
 ```
@@ -73,9 +73,9 @@ mon2 [85782] : alive : uptime 2 seconds
         "mon1" : {
                 "cmd": "example/program.sh",
                 "attempts": 20,
-		        "sleep": 10,
-		        "on_error" : "",
-		        "on_restart" : "",
+                "sleep": 10,
+                "on_error" : "",
+                "on_restart" : "",
                 "cron": "* * * * 2"
         },
         "mon2" : {
