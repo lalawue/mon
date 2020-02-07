@@ -20,7 +20,7 @@ Options:
 
   -r, <config_json>             run group config
   -v,                           output program version
-  -h, 		                output help information
+  -h, 		                    output help information
   -s, <pid_file>                check group child process status
 
 ```
@@ -71,17 +71,15 @@ mon2 [85782] : alive : uptime 2 seconds
         "pidfile" : "mon_sched.pid",
         "daemon" : false,
         "mon1" : {
-                "logfile": "log1.txt",
                 "cmd": "example/program.sh",
                 "attempts": 20,
-		"sleep": 10,
-		"on_error" : "",
-		"on_restart" : "",
+		        "sleep": 10,
+		        "on_error" : "",
+		        "on_restart" : "",
                 "cron": "* * * * 2"
         },
         "mon2" : {
                 "cmd": "example/program2.sh",
-                "logfile": "log2.txt",
                 "attempts": 30,
                 "sleep": 5,
                 "cron": "1 * * * *"

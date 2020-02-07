@@ -83,7 +83,6 @@ static void
 _monitor_free(monitor_t *m) {
 	_check_free((void *)m->name);
 	_check_free((void *)m->cmd);
-	_check_free((void *)m->logfile);
 	_check_free((void *)m->on_error);
 	_check_free((void *)m->on_restart);
 	if (m->cron) {
@@ -161,7 +160,6 @@ _mon_parse_object(json_object_entry *entry)
 	m->pid = K_INVALID_MONITOR_PID;
 	m->on_restart = NULL;
 	m->on_error = NULL;
-	m->logfile = "/dev/null";
 	m->max_sleepsec = 1;
 	m->max_attempts = 10;
 	m->name = strndup(entry->name, entry->name_length);
@@ -177,9 +175,6 @@ _mon_parse_object(json_object_entry *entry)
 		}
 		if (_entry_name_equal(entry, "cmd")) {
 			_value_string_dup(entry->value, &m->cmd);
-		}
-		if (_entry_name_equal(entry, "logfile")) {
-			_value_string_dup(entry->value, &m->logfile);
 		}
 		if (_entry_name_equal(entry, "on_error")) {
 			_value_string_dup(entry->value, &m->on_error);

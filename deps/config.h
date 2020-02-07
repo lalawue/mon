@@ -21,7 +21,6 @@ struct s_monitor {
 	int pid;					// 0 for dead state
     const char *name;			// monitor name
     const char *cmd;			// program with it's parameters
-    const char *logfile;
     const char *on_error;		// cmd on error
     const char *on_restart;		// cmd when restart
 	cron_t *cron;				// cron info
