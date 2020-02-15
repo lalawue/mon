@@ -97,7 +97,7 @@ redirect_stdio_to(const char *file) {
 	int nullfd = open("/dev/null", O_RDONLY, 0);
 	int logfd = nullfd;
 	if (file && strncmp(file, "/dev/null", 9) != 0) {
-		logfd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0755);  
+		logfd = open(file, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
 	}
 
 	if (-1 == logfd) {
@@ -391,7 +391,11 @@ monitor_exec: {
 	monitor_error: {
 		monitor->pid = K_INVALID_MONITOR_PID;
 		int64_t ms = ms_since_last_restart(monitor);
-		bool exit_normal = (WIFSIGNALED(monitor->status) | WEXITSTATUS(monitor->status)) == 0;
+		bool exit_normal = false; // for no cron
+		if (monitor->cron) {
+			// for cron one, check exit code
+			exit_normal = (WIFSIGNALED(monitor->status) | WEXITSTATUS(monitor->status)) == 0;
+		}
 		if (exit_normal || attempts_exceeded(monitor, ms)) {
 			if (!exit_normal) {
 				char *time = milliseconds_to_long_string(60000 - monitor->clock);
