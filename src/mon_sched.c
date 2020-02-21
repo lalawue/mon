@@ -25,7 +25,7 @@
  * Program version.
  */
 
-#define kVERSION "1.3.1"
+#define kVERSION "1.3.2"
 
 static mon_t *g_mon;
 
@@ -76,7 +76,7 @@ write_pidfile() {
 
 pid_t
 read_pidfile() {
-	return mon_get_pid(g_mon);
+	return mon_get_pid(g_mon->pidfile);
 }
 
 /*
@@ -86,6 +86,14 @@ read_pidfile() {
 void
 show_status_of(const char *pidfile) {
 	mon_show_status(pidfile);
+}
+
+void
+kill_group_process(const char *pidfile) {
+	int pid = mon_get_pid(pidfile);
+	if (pid > 0) {
+		kill(pid, SIGQUIT);
+	}
 }
 
 /*
@@ -433,15 +441,21 @@ monitor_exec: {
 static void
 _show_help(char *app_name) {
 	printf("Usage:\n");
-	printf("%s -r config_json, run with group config\n", app_name);
-	printf("%s -v,\t\tshow version\n", app_name);
-	printf("%s -h,\t\tshow help\n", app_name);
-	printf("%s -s pid_file, show group pid status\n", app_name);
+	printf("%s -h \t\t\t show help\n", app_name);
+	printf("%s -v \t\t\t show version\n", app_name);
+	printf("%s -r config_json \t run group process from config\n", app_name);
+	printf("%s -s pid_file    \t show group pid status\n", app_name);
+	printf("%s -k pid_file    \t kill group of process\n", app_name);
 }
 
 int
 main(int argc, char *argv[]) {
-	if (argc < 3) {
+	if (argc < 2) {
+		_show_help(argv[0]);
+		return 0;
+	}
+
+	if (strcmp(argv[1], "-h") == 0) {
 		_show_help(argv[0]);
 		return 0;
 	}
@@ -451,13 +465,18 @@ main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	if (strcmp(argv[1], "-h") == 0) {
+	if (argc < 3) {
 		_show_help(argv[0]);
 		return 0;
 	}
 
 	if (strcmp(argv[1], "-s") == 0) {
 		show_status_of(argv[2]);
+		return 0;
+	}
+
+	if (strcmp(argv[1], "-k") == 0) {
+		kill_group_process(argv[2]);
 		return 0;
 	}
 

@@ -225,9 +225,9 @@ mon_show_status(const char *pid_file) {
 }
 
 int
-mon_get_pid(mon_t *mon)
+mon_get_pid(const char *pidfile)
 {
-	mon_status_t *st = _get_status_list(mon->pidfile);
+	mon_status_t *st = _get_status_list(pidfile);
 	int pid = st ? st->pid : 0;
 	_drop_status_list(st);
 	return pid;

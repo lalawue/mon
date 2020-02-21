@@ -17,6 +17,6 @@ void mon_dump_status(mon_t *mon);
 
 void mon_show_status(const char *pid_file);
 
-int mon_get_pid(mon_t *mon);
+int mon_get_pid(const char *pid_file);
 
 #endif
