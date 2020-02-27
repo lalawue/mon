@@ -92,7 +92,7 @@ void
 kill_group_process(const char *pidfile) {
 	int pid = mon_get_pid(pidfile);
 	if (pid > 0) {
-		kill(pid, SIGQUIT);
+		kill(pid, SIGTERM);
 	}
 }
 
