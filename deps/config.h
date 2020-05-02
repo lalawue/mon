@@ -18,20 +18,20 @@
  * Monitor.
  */
 struct s_monitor {
-	int pid;					// 0 for dead state
-    const char *name;			// monitor name
-    const char *cmd;			// program with it's parameters
-    const char *on_error;		// cmd on error
-    const char *on_restart;		// cmd when restart
-	cron_t *cron;				// cron info
-    int64_t last_restart_at;	// last restart time ms
-    int64_t clock;
-    int max_sleepsec;			// sleep seconds when restart
-	int sleepsec;				// sleeped time before next restart
-    int max_attempts;			// max restart count
-    int attempts;				// restart count
-	int status;					// exit status
-    struct s_monitor *next_monitor;
+   int pid;                     // 0 for dead state
+   const char *name;            // monitor name
+   const char *cmd;             // program with it's parameters
+   const char *on_error;        // cmd on error
+   const char *on_restart;      // cmd when restart
+   cron_t *cron;                // cron info
+   int64_t last_restart_at;	    // last restart time ms
+   int64_t clock;
+   int max_sleepsec;            // sleep seconds when restart
+   int sleepsec;                // sleeped time before next restart
+   int max_attempts;            // max restart count
+   int attempts;                // restart count
+   int status;                  // exit status
+   struct s_monitor *next_monitor;
 };
 
 typedef struct s_monitor monitor_t;
@@ -40,12 +40,12 @@ typedef struct s_monitor monitor_t;
  * Mon
  */
 typedef struct {
-    const char *name;			// group name
-	const char *logfile;		// mon_sched logfile
-    const char *pidfile;		// group process pid
-	int daemon;					// daemonize
-	time_t time;				// start time
-	monitor_t *monitors;		// monitor list
+   const char *name;        // group name
+   const char *logfile;		// mon_sched logfile
+   const char *pidfile;		// group process pid
+   int daemon;              // daemonize
+   time_t time;             // start time
+   monitor_t *monitors;		// monitor list
 } mon_t;
 
 mon_t* mon_create(const char *file_path);

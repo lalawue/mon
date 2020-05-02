@@ -11,65 +11,97 @@
 #include "config.h"
 #include "json.h"
 
+typedef struct {
+    FILE *fp;
+	struct stat file_status;    
+    char *file_content;
+    json_value *json;
+} json_file_t;
+
 mon_t* _mon_parse_json(json_value *value);
 
-mon_t*
-mon_create(const char* file_path)
-{
-	FILE* fp;
-	struct stat filestatus;
-	int file_size;
-	char* file_contents;
-	json_value* value;
+static int
+_json_load(const char *file_path, json_file_t *jf) {
 
-	if (file_path == NULL) {
+	if (file_path == NULL || jf == NULL) {
 		fprintf(stderr, "Invalid file path\n");
+        exit(1);
 	}
 
-	if (stat(file_path, &filestatus) != 0) {
+	if (stat(file_path, &jf->file_status) != 0) {
 		fprintf(stderr, "File '%s' not found\n", file_path);
-		exit(1);
+        goto fail_exit;
 	}
 
-	file_size = filestatus.st_size;
-	file_contents = (char*)malloc(filestatus.st_size);
-	if (file_contents == NULL) {
-		fprintf(stderr, "Memory error: unable to allocate %d bytes\n", file_size);
-		exit(1);
-	}
-
-	fp = fopen(file_path, "rt");
-	if (fp == NULL) {
+	jf->fp = fopen(file_path, "rb");
+	if (jf->fp == NULL) {
 		fprintf(stderr, "Unable to open %s\n", file_path);
-		fclose(fp);
-		free(file_contents);
-		exit(1);
-	}
-	if (fread(file_contents, file_size, 1, fp) != 1) {
-		fprintf(stderr, "Unable t read content of %s\n", file_path);
-		fclose(fp);
-		free(file_contents);
-		exit(1);
+        goto fail_exit;
 	}
 
-	value = json_parse((json_char*)file_contents, file_size);
-
-	if (value == NULL) {
-		fprintf(stderr, "Unable to parse content\n");
-		free(file_contents);
-		exit(1);
+	const int file_size = jf->file_status.st_size;
+	jf->file_content = (char*)malloc(file_size);
+	if (jf->file_content == NULL) {
+		fprintf(stderr, "Memory error: unable to allocate %d bytes\n", file_size);
+        goto fail_exit;
 	}
 
-	mon_t *m = _mon_parse_json(value);
-	if (!m) {
+	if (fread(jf->file_content, file_size, 1, jf->fp) != 1) {
+		fprintf(stderr, "Unable to read content of %s\n", file_path);
+        goto fail_exit;
+	}
+
+	jf->json = json_parse((json_char*)jf->file_content, file_size);
+    if (jf->json == NULL) {
+        fprintf(stderr, "Unable to parse content\n");        
+        goto fail_exit;
+	}
+
+    return 1;
+
+    fail_exit:
+    if (jf->file_content) {
+		free(jf->file_content);
+    }
+    if (jf->fp) {
+        fclose(jf->fp);
+    }
+    exit(1);
+    return 0;
+}
+
+static void
+_json_destroy(json_file_t *jf) {
+    if (jf) {
+        if (jf->file_content) {
+            free(jf->file_content);
+        }
+        if (jf->fp) {
+            fclose(jf->fp);
+        }
+        if (jf->json) {
+            json_value_free(jf->json);
+        }
+    }
+}
+
+mon_t*
+mon_create(const char* file_path) {
+    json_file_t jf;
+
+    if (!_json_load(file_path, &jf)) {
+        return NULL;
+    }
+
+	mon_t *mon = _mon_parse_json(jf.json);
+	if (!mon) {
 		fprintf(stderr, "Invalid json\n");
 		exit(1);
 	}
 
-	json_value_free(value);
-	free(file_contents);
+    _json_destroy(&jf);
 
-	return m;
+	return mon;
 }
 
 static void
