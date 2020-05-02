@@ -7,90 +7,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include "config.h"
-#include "json.h"
-
-typedef struct {
-    FILE *fp;
-	struct stat file_status;    
-    char *file_content;
-    json_value *json;
-} json_file_t;
+#include "json_file.h"
 
 mon_t* _mon_parse_json(json_value *value);
-
-static int
-_json_load(const char *file_path, json_file_t *jf) {
-
-	if (file_path == NULL || jf == NULL) {
-		fprintf(stderr, "Invalid file path\n");
-        exit(1);
-	}
-
-	if (stat(file_path, &jf->file_status) != 0) {
-		fprintf(stderr, "File '%s' not found\n", file_path);
-        goto fail_exit;
-	}
-
-	jf->fp = fopen(file_path, "rb");
-	if (jf->fp == NULL) {
-		fprintf(stderr, "Unable to open %s\n", file_path);
-        goto fail_exit;
-	}
-
-	const int file_size = jf->file_status.st_size;
-	jf->file_content = (char*)malloc(file_size);
-	if (jf->file_content == NULL) {
-		fprintf(stderr, "Memory error: unable to allocate %d bytes\n", file_size);
-        goto fail_exit;
-	}
-
-	if (fread(jf->file_content, file_size, 1, jf->fp) != 1) {
-		fprintf(stderr, "Unable to read content of %s\n", file_path);
-        goto fail_exit;
-	}
-
-	jf->json = json_parse((json_char*)jf->file_content, file_size);
-    if (jf->json == NULL) {
-        fprintf(stderr, "Unable to parse content\n");        
-        goto fail_exit;
-	}
-
-    return 1;
-
-    fail_exit:
-    if (jf->file_content) {
-		free(jf->file_content);
-    }
-    if (jf->fp) {
-        fclose(jf->fp);
-    }
-    exit(1);
-    return 0;
-}
-
-static void
-_json_destroy(json_file_t *jf) {
-    if (jf) {
-        if (jf->file_content) {
-            free(jf->file_content);
-        }
-        if (jf->fp) {
-            fclose(jf->fp);
-        }
-        if (jf->json) {
-            json_value_free(jf->json);
-        }
-    }
-}
 
 mon_t*
 mon_create(const char* file_path) {
     json_file_t jf;
 
-    if (!_json_load(file_path, &jf)) {
-        return NULL;
+    if (!json_file_load(file_path, &jf)) {
+        exit(1);
     }
 
 	mon_t *mon = _mon_parse_json(jf.json);
@@ -99,7 +26,7 @@ mon_create(const char* file_path) {
 		exit(1);
 	}
 
-    _json_destroy(&jf);
+    json_file_destroy(&jf);
 
 	return mon;
 }

@@ -1,5 +1,5 @@
 PREFIX ?= /usr/local
-SRC = src/mon_sched.c deps/ms.c deps/json.c deps/config.c deps/status.c deps/cron.c
+SRC = src/mon_sched.c deps/ms.c deps/json.c deps/config.c deps/status.c deps/cron.c deps/json_file.c
 OBJ = $(SRC:.c=.o)
 CFLAGS = -O2 -D_GNU_SOURCE -std=c99 -I deps/
 BIN = mon_sched

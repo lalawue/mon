@@ -15,6 +15,7 @@
 #include "status.h"
 #include "json.h"
 #include "ms.h"
+#include "json_file.h"
 
 /** dump status as JSON
  */
@@ -73,64 +74,23 @@ mon_status_t* _status_parse_json(json_value *value);
 
 static mon_status_t*
 _get_status_list(const char *pid_file) {
+    json_file_t jf;
 
-	if (pid_file == NULL) {
+    if (pid_file == NULL) {
 		return NULL;
 	}
 
-	FILE* fp;
-	struct stat filestatus;
-	int file_size;
-	char* file_contents;
-	json_value* value;
+    if (!json_file_load(pid_file, &jf)) {
+        exit(1);
+    }
 
-	if (pid_file == NULL) {
-		fprintf(stderr, "Invalid file path\n");
-	}
-
-	if (stat(pid_file, &filestatus) != 0) {
-		fprintf(stderr, "File '%s' not found\n", pid_file);
-		exit(1);
-	}
-
-	file_size = filestatus.st_size;
-	file_contents = (char*)malloc(filestatus.st_size);
-	if (file_contents == NULL) {
-		fprintf(stderr, "Memory error: unable to allocate %d bytes\n", file_size);
-		exit(1);
-	}
-
-	fp = fopen(pid_file, "rt");
-	if (fp == NULL) {
-		fprintf(stderr, "Unable to open %s\n", pid_file);
-		fclose(fp);
-		free(file_contents);
-		exit(1);
-	}
-	if (fread(file_contents, file_size, 1, fp) != 1) {
-		fprintf(stderr, "Unable t read content of %s\n", pid_file);
-		fclose(fp);
-		free(file_contents);
-		exit(1);
-	}
-
-	value = json_parse((json_char*)file_contents, file_size);
-
-	if (value == NULL) {
-		fprintf(stderr, "Unable to parse content\n");
-		free(file_contents);
-		exit(1);
-	}
-
-	mon_status_t *head = _status_parse_json(value);
+	mon_status_t *head = _status_parse_json(jf.json);
 	if (!head) {
 		fprintf(stderr, "Invalid status json\n");
 		exit(1);
 	}
 
-	json_value_free(value);
-	free(file_contents);
-
+    json_file_destroy(&jf);
 	return head;
 }
 
@@ -224,6 +184,8 @@ mon_show_status(const char *pid_file) {
 	_drop_status_list(head);
 }
 
+/** get the first pid of pid file, it may be group
+ */
 int
 mon_get_pid(const char *pidfile)
 {

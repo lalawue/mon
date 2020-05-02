@@ -25,7 +25,7 @@
  * Program version.
  */
 
-#define kVERSION "1.3.2"
+#define kVERSION "1.3.3"
 
 static mon_t *g_mon;
 
