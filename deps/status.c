@@ -17,10 +17,37 @@
 #include "ms.h"
 #include "json_file.h"
 
+#define kBufSize 2048
+
+static void
+_dump_monitor(monitor_t *monitor, int fd) {
+    if (!monitor) {
+        return;
+    }
+    const time_t ti = time(NULL);
+	unsigned char buf[kBufSize];
+    monitor_t *m = monitor;
+    while (m) {
+        // write child process start time and pid
+        time_t mti = m->last_restart_at / 1000;
+        int bytes = snprintf((char *)buf, kBufSize, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t}",
+                            m->name, mti ? mti : ti, m->pid);
+        write(fd, buf, bytes);
+        m = m->next_monitor;
+        if (m) {
+            write(fd, ",\n", 2);
+        } else {
+            write(fd, "\n", 1);
+            break;
+        }
+    }
+    free(buf);
+}
+
 /** dump status as JSON
  */
 void
-mon_dump_status(mon_t *mon) {
+mon_dump_group(mon_t *mon) {
 	if (!mon || !mon->pidfile) {
 		perror("dump status ");
 		return;
@@ -28,39 +55,37 @@ mon_dump_status(mon_t *mon) {
 
 	int fd = open(mon->pidfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
+        perror("failed to open file");
 		return;
 	}
-
-	const int buf_len = 4096;
-	unsigned char *buf = malloc(buf_len);
-	int bytes = 0;
-	time_t ti = time(NULL);
+	
+    unsigned char buf[kBufSize];
 	write(fd, "{\n", 2);
 	// write group start time and pid
-	bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t},\n",
-					mon->name, mon->time, getpid());
-	write(fd, buf, bytes);					 
-	{
-		monitor_t *m = mon->monitors;
-		while (m) 
-		{	
-			// write child process start time and pid
-			time_t mti = m->last_restart_at / 1000;
-			bytes = snprintf((char *)buf, buf_len, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t}",
-							 m->name, mti ? mti : ti, m->pid);
-			write(fd, buf, bytes);
-			m = m->next_monitor;
-			if (m) {
-				write(fd, ",\n", 2);
-			} else {
-				write(fd, "\n", 1);
-				break;
-			}
-		}
-	}
+	int bytes = snprintf((char *)buf, kBufSize, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t},\n",
+                        mon->name, mon->time, getpid());
+	write(fd, buf, bytes);
+    _dump_monitor(mon->monitors, fd);
 	write(fd, "}\n", 2);
 	free(buf);
 	close(fd);
+}
+
+void
+mon_dump_monitor(monitor_t *monitor) {
+    if (!monitor || !monitor->pidfile) {
+        perror("invalid monitor");
+        return;
+    }
+  	int fd = open(monitor->pidfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+        perror("failed to open file");        
+		return;
+	}
+    write(fd, "{\n", 2);
+    _dump_monitor(monitor, fd);
+    write(fd, "}\n", 2);
+    close(fd);
 }
 
 typedef struct s_mon_status {

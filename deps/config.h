@@ -19,6 +19,7 @@
  */
 struct s_monitor {
    int pid;                     // 0 for dead state
+   const char *pidfile;         // pidfile for store pid for monitor
    const char *name;            // monitor name
    const char *cmd;             // program with it's parameters
    const char *on_error;        // cmd on error

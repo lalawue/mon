@@ -67,7 +67,7 @@ timestamp() {
 
 void
 write_pidfile() {
-	mon_dump_status(g_mon);
+	mon_dump_group(g_mon);
 }
 
 /*
@@ -335,6 +335,7 @@ monitor_exec: {
 		log("%s pid %d at %s", monitor->name, pid, _current_tm_string(_current_tm()));
 
 		monitor_skip: {
+            mon_dump_monitor(monitor);
 			if (!last_callback) {
 				// callback at last one
 				return;
