@@ -20,7 +20,7 @@
 #define kBufSize 2048
 
 static void
-_dump_monitor(monitor_t *monitor, int fd) {
+_dump_monitor(monitor_t *monitor, int fd, int dump_all) {
     if (!monitor) {
         return;
     }
@@ -34,14 +34,13 @@ _dump_monitor(monitor_t *monitor, int fd) {
                             m->name, mti ? mti : ti, m->pid);
         write(fd, buf, bytes);
         m = m->next_monitor;
-        if (m) {
+        if (m && dump_all) {
             write(fd, ",\n", 2);
         } else {
             write(fd, "\n", 1);
             break;
         }
     }
-    free(buf);
 }
 
 /** dump status as JSON
@@ -65,25 +64,23 @@ mon_dump_group(mon_t *mon) {
 	int bytes = snprintf((char *)buf, kBufSize, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t},\n",
                         mon->name, mon->time, getpid());
 	write(fd, buf, bytes);
-    _dump_monitor(mon->monitors, fd);
+    _dump_monitor(mon->monitors, fd, 1);
 	write(fd, "}\n", 2);
-	free(buf);
 	close(fd);
 }
 
 void
 mon_dump_monitor(monitor_t *monitor) {
     if (!monitor || !monitor->pidfile) {
-        perror("invalid monitor");
         return;
     }
   	int fd = open(monitor->pidfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
-        perror("failed to open file");        
+        perror("failed to open file for monitor");
 		return;
 	}
     write(fd, "{\n", 2);
-    _dump_monitor(monitor, fd);
+    _dump_monitor(monitor, fd, 0);
     write(fd, "}\n", 2);
     close(fd);
 }

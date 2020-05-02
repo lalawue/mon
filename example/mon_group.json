@@ -4,15 +4,15 @@
 	"pidfile" : "mon_sched.pid",
 	"daemon" : false,
 	"mon1" : {
+		"pidfile": "example/mon1.pid",
 		"cmd": "example/program.sh",
-		"attempts": 1,
+		"attempts": 2,
 		"sleep": 2,
-		"cron": "*/2 * * * *"
 	},
 	"mon2" : {
+		"pidfile": "example/mon2.pid",
 		"cmd": "example/program2.sh",
-		"attempts": 2,
+		"attempts": 3,
 		"sleep": 3,
-		"cron": "*/3 * * * *"
 	}
 }

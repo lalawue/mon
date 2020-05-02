@@ -132,6 +132,9 @@ _mon_parse_object(json_object_entry *entry)
 		if (_entry_name_equal(entry, "name")) {
 			_value_string_dup(entry->value, &m->name);
 		}
+        if (_entry_name_equal(entry, "pidfile")) {
+			_value_string_dup(entry->value, &m->pidfile);
+		}
 		if (_entry_name_equal(entry, "cmd")) {
 			_value_string_dup(entry->value, &m->cmd);
 		}

@@ -307,6 +307,7 @@ typedef void (*last_one_callback)();
 
 void
 start(monitor_t *monitor, last_one_callback last_callback) {
+    char monitor_name[1024];
 monitor_exec: {
 	if (monitor->cron) {
 		// cron skip when not in time area, or has running before
@@ -357,8 +358,10 @@ monitor_exec: {
 				pid = waitpid(-1, &status, WNOHANG);				
 				if (pid > 0) {
 					monitor = _monitor_with_pid(pid);
-					monitor->status = status;
-					goto monitor_signal;
+                    if (monitor) {
+                        monitor->status = status;
+                        goto monitor_signal;
+                    }
 				} 
 				
 				monitor = _increase_sleep_monitor(g_mon);
@@ -413,15 +416,18 @@ monitor_exec: {
 					exec_error_command(monitor, pid);
 				}
 			}
+            strncpy(monitor_name, monitor->name, 1024);
 			if (mon_monitor_try_remove(g_mon, monitor)) {
-				log("%s bye :)", monitor->name);
+				log("%s bye :)", monitor_name);
+                // if no monitors
+                if (g_mon->monitors) {
+                    goto minitor_wait;
+                } else {
+                    log("%s exit, no monitors", g_mon->name);
+                    exit(2);
+                }
 			} else {
 				mon_monitor_reset(monitor);
-			}
-			// if no monitors
-			if (!g_mon->monitors) {
-				log("%s exit, no monitors", g_mon->name);
-				exit(2);
 			}
 		} else {
 			log("%s %d attempts remaining", monitor->name, monitor->max_attempts - monitor->attempts);			
