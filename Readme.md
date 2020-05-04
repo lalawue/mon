@@ -66,24 +66,24 @@ mon2 [85782] : alive : uptime 2 seconds
 
 ```js
 {
-        "name" : "mon_group",
-        "logfile" : "mon_sched.log",
-        "pidfile" : "mon_sched.pid",
-        "daemon" : false,
-        "mon1" : {
-                "cmd": "example/program.sh",
-                "attempts": 20,
-                "sleep": 10,
-                "on_error" : "",
-                "on_restart" : "",
-                "cron": "* * * * 2"
-        },
-        "mon2" : {
-                "cmd": "example/program2.sh",
-                "attempts": 30,
-                "sleep": 5,
-                "cron": "1 * * * *"
-        }
+	"name" : "mon_group",
+	"logfile" : "mon_sched.log",
+	"pidfile" : "mon_sched.pid",
+	"daemon" : false,
+	"mon1" : {
+		"pidfile": "example/mon1.pid",
+		"cmd": "example/program.sh",
+		"attempts": 1,
+		"sleep": 2,
+		"cron": "*/2 * * * *"
+	},
+	"mon2" : {
+		"pidfile": "example/mon2.pid",
+		"cmd": "example/program2.sh",
+		"attempts": 2,
+		"sleep": 3,
+		"cron": "*/3 * * * *"
+	}
 }
 ```
 You may daemonize mon_sched to set group 'daemon' key to true.
