@@ -19,6 +19,12 @@
 
 #define kBufSize 2048
 
+static inline void
+_dummy_write(int fd, const void *buf, size_t nbyte) {
+    ssize_t ret = write(fd, buf, nbyte);
+    (void)ret;
+}
+
 static void
 _dump_monitor(monitor_t *monitor, int fd, int dump_all) {
     if (!monitor) {
@@ -32,12 +38,12 @@ _dump_monitor(monitor_t *monitor, int fd, int dump_all) {
         time_t mti = m->last_restart_at / 1000;
         int bytes = snprintf((char *)buf, kBufSize, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t}",
                             m->name, mti ? mti : ti, m->pid);
-        write(fd, buf, bytes);
+        _dummy_write(fd, buf, bytes);
         m = m->next_monitor;
         if (m && dump_all) {
-            write(fd, ",\n", 2);
+            _dummy_write(fd, ",\n", 2);
         } else {
-            write(fd, "\n", 1);
+            _dummy_write(fd, "\n", 1);
             break;
         }
     }
@@ -57,15 +63,15 @@ mon_dump_group(mon_t *mon) {
         perror("failed to open file");
 		return;
 	}
-	
+    
     unsigned char buf[kBufSize];
-	write(fd, "{\n", 2);
+	_dummy_write(fd, "{\n", 2);
 	// write group start time and pid
 	int bytes = snprintf((char *)buf, kBufSize, "\t\"%s\" : {\n\t\t\"time\" : %ld,\n\t\t\"pid\" : %d\n\t},\n",
                         mon->name, mon->time, getpid());
-	write(fd, buf, bytes);
+	_dummy_write(fd, buf, bytes);
     _dump_monitor(mon->monitors, fd, 1);
-	write(fd, "}\n", 2);
+	_dummy_write(fd, "}\n", 2);
 	close(fd);
 }
 
@@ -79,9 +85,9 @@ mon_dump_monitor(monitor_t *monitor) {
         perror("failed to open file for monitor");
 		return;
 	}
-    write(fd, "{\n", 2);
+    _dummy_write(fd, "{\n", 2);
     _dump_monitor(monitor, fd, 0);
-    write(fd, "}\n", 2);
+    _dummy_write(fd, "}\n", 2);
     close(fd);
 }
 
