@@ -76,7 +76,13 @@ write_pidfile() {
 
 pid_t
 read_pidfile() {
-	return mon_get_pid(g_mon->pidfile);
+    mon_status_t *list = mon_status_list(g_mon->pidfile);
+    if (list) {
+        pid_t pid = list->pid;
+        mon_status_destroy(list);
+        return pid;
+    }
+    return 0;
 }
 
 /*
@@ -89,10 +95,22 @@ show_status_of(const char *pidfile) {
 }
 
 void
-kill_group_process(const char *pidfile) {
-	int pid = mon_get_pid(pidfile);
-	if (pid > 0) {
-		kill(pid, SIGTERM);
+kill_process_with_name(const char *pidfile, const char *name) {
+	mon_status_t *list = mon_status_list(pidfile);
+	if (list) {
+        if (name == NULL) {
+            if (list->pid > 0) {
+                kill(list->pid, SIGTERM);
+            }
+        } else {
+            for (mon_status_t *st = list; st; st = st->next) {
+                if (strncmp(st->name, name, sizeof(st->name)) == 0) {
+                    kill(st->pid, SIGTERM);
+                    break;
+                }
+            }
+        }
+        mon_status_destroy(list);
 	}
 }
 
@@ -450,9 +468,9 @@ _show_help(char *app_name) {
 	printf("Usage:\n");
 	printf("%s -h \t\t\t show help\n", app_name);
 	printf("%s -v \t\t\t show version\n", app_name);
-	printf("%s -r config_json \t run group process from config\n", app_name);
-	printf("%s -s pid_file    \t show group pid status\n", app_name);
-	printf("%s -k pid_file    \t kill group of process\n", app_name);
+	printf("%s -r config_json   \t run group process from config\n", app_name);
+	printf("%s -s pid_file      \t show group pid status\n", app_name);
+	printf("%s -k pid_file name \t kill group of process\n", app_name);
 }
 
 int
@@ -483,7 +501,7 @@ main(int argc, char *argv[]) {
 	}
 
 	if (strcmp(argv[1], "-k") == 0) {
-		kill_group_process(argv[2]);
+		kill_process_with_name(argv[2], argc > 2 ? argv[3] : NULL);
 		return 0;
 	}
 

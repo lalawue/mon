@@ -91,13 +91,6 @@ mon_dump_monitor(monitor_t *monitor) {
     close(fd);
 }
 
-typedef struct s_mon_status {
-	const char name[128];
-	time_t time;
-	int pid;
-	struct s_mon_status *next;
-} mon_status_t;
-
 mon_status_t* _status_parse_json(json_value *value);
 
 static mon_status_t*
@@ -214,11 +207,12 @@ mon_show_status(const char *pid_file) {
 
 /** get the first pid of pid file, it may be group
  */
-int
-mon_get_pid(const char *pidfile)
-{
-	mon_status_t *st = _get_status_list(pidfile);
-	int pid = st ? st->pid : 0;
-	_drop_status_list(st);
-	return pid;
+mon_status_t*
+mon_status_list(const char *pidfile) {
+    return _get_status_list(pidfile);
+}
+
+void
+mon_status_destroy(mon_status_t *list) {
+    _drop_status_list(list);
 }

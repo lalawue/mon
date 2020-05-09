@@ -17,6 +17,14 @@ void mon_dump_monitor(monitor_t *monitor);
 
 void mon_show_status(const char *pid_file);
 
-int mon_get_pid(const char *pid_file);
+typedef struct s_mon_status {
+	const char name[128];
+	time_t time;
+	int pid;
+	struct s_mon_status *next;
+} mon_status_t;
+
+mon_status_t* mon_status_list(const char *pid_file);
+void mon_status_destroy(mon_status_t *);
 
 #endif
