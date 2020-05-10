@@ -18,11 +18,11 @@ Usage: mon_sched options
 
 Options:
 
-  -r, <config_json>             run group config
-  -v,                           output program version
-  -h,                           output help information
-  -s, <pid_file>                check group child process status
-
+  -r, <sched_json>              run group process from config
+  -v,                           show version
+  -h,                           show help
+  -s, <pid_json>                show group and child status
+  -k, <pid_json> [child_name]   kill [group | child] process
 ```
 
 ## Example

@@ -25,7 +25,7 @@
  * Program version.
  */
 
-#define kVERSION "1.3.3"
+#define kVERSION "1.3.4"
 
 static mon_t *g_mon;
 
@@ -466,11 +466,11 @@ monitor_exec: {
 static void
 _show_help(char *app_name) {
 	printf("Usage:\n");
-	printf("%s -h \t\t\t show help\n", app_name);
-	printf("%s -v \t\t\t show version\n", app_name);
-	printf("%s -r config_json   \t run group process from config\n", app_name);
-	printf("%s -s pid_file      \t show group pid status\n", app_name);
-	printf("%s -k pid_file name \t kill group of process\n", app_name);
+	printf("%s -h \t\t\t\t show help\n", app_name);
+	printf("%s -v \t\t\t\t show version\n", app_name);
+	printf("%s -r sched_json \t\t run group process from config\n", app_name);
+	printf("%s -s pid_json \t\t show group and child status\n", app_name);
+	printf("%s -k pid_json [child_name] \t kill [group | child] process\n", app_name);
 }
 
 int
