@@ -1,3 +1,12 @@
+
+[![MIT licensed][1]][2]  [![Build Status][3]][4]
+
+[1]: https://img.shields.io/badge/license-MIT-blue.svg
+[2]: LICENSE
+
+[3]: https://travis-ci.org/lalawue/mon_sched.svg?branch=master
+[4]: https://travis-ci.org/lalawue/mon_sched
+
 # mon_sched(1)
 
   group process supervisor, using a JSON config file, support cron style invoke interval, fork from https://github.com/tj/mon, depends on  https://github.com/udp/json-parser, and the origin `mon` was:
@@ -117,10 +126,3 @@ and the 'cron' entry format like:
   - __SIGQUIT__ graceful shutdown
   - __SIGTERM__ graceful shutdown
 
-# License
-
-  MIT
-
-# Build Status
-
-  [![Build Status](https://travis-ci.org/lalawue/mon_sched.png)](http://travis-ci.org/lalawue/mon_sched)
