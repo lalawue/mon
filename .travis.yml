@@ -4,6 +4,6 @@ compiler:
     - clang
     - gcc
 
-install: make && sudo make install
+install: true
 
-script: /usr/local/bin/mon -h
+script: make
