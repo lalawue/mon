@@ -25,7 +25,7 @@
  * Program version.
  */
 
-#define kVERSION "1.3.4"
+#define kVERSION "1.3.5"
 
 static mon_t *g_mon;
 
@@ -83,6 +83,13 @@ read_pidfile() {
         return pid;
     }
     return 0;
+}
+
+void
+remove_pidfile() {
+   if (g_mon->pidfile) {
+      unlink(g_mon->pidfile);
+   }
 }
 
 /*
@@ -154,6 +161,7 @@ graceful_exit(int sig) {
   kill(-pid, sig);
   log("waiting for exit");
   waitpid(read_pidfile(), &status, 0);
+  remove_pidfile();
   log("bye :)");
   exit(0);
 }
